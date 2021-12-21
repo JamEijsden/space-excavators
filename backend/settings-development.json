@@ -1,0 +1,25 @@
+{
+  "authentication": {
+    "token": "whatjagmaybeheterjimmie123butw4t3v3r"
+  },
+  "databases": {
+    "mongodb": {
+      "uri": "mongodb://127.0.0.1/app"
+    }
+  },
+  "smtp": {
+    "host": "",
+    "port": 587,
+    "username": "",
+    "password": ""
+  },
+  "support": {
+    "email": "jimmie@eijsden.se",
+    "name": "Jimmie Van Eijsden"
+  },
+  "urls": {
+    "all": "chrome-extension://omalebghpgejjiaoknljcfmglgbpocdp",
+    "api": "http://localhost:8001",
+    "app": "http://localhost:4200"
+  }
+}
