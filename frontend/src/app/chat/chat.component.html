@@ -1,0 +1,21 @@
+<div class="chat-container">
+    <div class="chat-history" [ngStyle]="{'overflow-y': this.active ? 'auto' : 'hidden'}">
+        <mat-list>
+            <mat-list-item *ngFor="let m of getChatHistory()">
+                <span [ngStyle]="{ 'color': m.user.color, 'background': 'black'}">
+                    [ {{getDate(m.timestamp)}} - {{m.user.username}} ]: {{m.msg}}
+                </span>
+            </mat-list-item>
+        </mat-list>
+    </div>
+    
+    <div class="chat-input" *ngIf="active">
+        <mat-divider></mat-divider>
+        <mat-form-field class="chat-input-field">
+            <span matPrefix>{{user.username}} |&nbsp;</span>
+            <input #msg matInput (keyup.enter)="sendMessage(msg.value, $event); msg.value ='';"/>
+        </mat-form-field>
+        <!-- <button mat-raised-button (click)="sendMessage()" [disabled]="!isConnected()" >Send</button> -->
+    </div>
+</div>    
+

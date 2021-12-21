@@ -1,0 +1,40 @@
+
+.chat-container {
+    background-color:rgba(217, 217, 217, 0.0);
+    position: relative; 
+    height: 30vh;
+    width: 30vw;
+    color: white !important;
+}
+
+:host .active .chat-container {
+    background-color:rgba(217, 217, 217, 0.5);
+    color: black;
+}
+
+.chat-history {
+    overflow-y: auto;
+    max-height: calc(100% - 100px);
+}
+
+.chat-history mat-list-item {
+    height: 25px;
+}
+
+.chat-input {
+    width: 100%;
+    height: 100px;
+    position: absolute;
+    display: flex;
+    bottom: 0;
+    right: 0;
+    align-items: center;
+}
+
+.chat-input-field {
+    font-size: 18px;
+    margin: 0 auto;
+    margin-bottom: 25px;
+    width: 90%;
+    height: 40px;
+}

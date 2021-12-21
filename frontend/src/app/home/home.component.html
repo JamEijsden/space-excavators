@@ -1,0 +1,58 @@
+<div class="container">
+    <mat-card>
+        <mat-card-content>
+            <div class="flex-row">
+                <div class="flex-row">
+                    <mat-form-field class="username-input">
+                        <input matInput #username placeholder="Pick a username" (keyup)="updateUser(username.value, user.color, $event)" [(ngModel)]="user.username"/>
+                    </mat-form-field>
+                    <input #color type="color" id="color" name="color" list="rainbow" (change)="updateUser(user.username, color.value)" [(ngModel)]="user.color"/>
+                </div>
+                <div class="flex-col">
+                    
+                    <div class="demo-button-container">
+                        <button mat-raised-button class="table-btn" (click)="joinGame()" [disabled]="!selectedRoom || selectedRoom.host.uuid === user.uuid">Join</button>
+                        <button mat-raised-button class="table-btn" (click)="hostGame()">Host</button>
+                    </div>
+                      
+                    <table mat-table [dataSource]="rooms" class="mat-elevation-z8 demo-table">
+                    <!-- Position Column -->
+                    <ng-container matColumnDef="name">
+                        <th mat-header-cell *matHeaderCellDef>Name</th>
+                        <td mat-cell *matCellDef="let element">{{element.name}}</td>
+                    </ng-container>
+                    
+                    <!-- Name Column -->
+                    <ng-container matColumnDef="host">
+                        <th mat-header-cell *matHeaderCellDef>Host</th>
+                        <td mat-cell *matCellDef="let element">{{element.host.username}}</td>
+                    </ng-container>
+                    
+                    <!-- Weight Column -->
+                    <ng-container matColumnDef="playerNumber">
+                        <th mat-header-cell *matHeaderCellDef># Players</th>
+                        <td mat-cell *matCellDef="let element">{{element.playerNumber}}</td>
+                    </ng-container>
+                    
+                    
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row 
+                    (click)="selectedRoom = row"
+                    [class.table-row-selected]="selectedRoom === row"
+                    *matRowDef="let row; columns: displayedColumns;"></tr>
+                    </table>
+                </div>
+            </div>
+        </mat-card-content>
+    </mat-card>
+</div>
+
+<datalist id="rainbow">
+    <option value="#FF0000">Red</option>
+    <option value="#FFA500">Orange</option>
+    <option value="#FFFF00">Yellow</option>
+    <option value="#008000">Green</option>
+    <option value="#0000FF">Blue</option>
+    <option value="#4B0082">Indigo</option>
+    <option value="#EE82EE">Violet</option>
+</datalist>

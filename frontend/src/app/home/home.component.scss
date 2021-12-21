@@ -1,0 +1,50 @@
+.container {
+    background: black;
+}
+
+mat-card {
+    display: inline-block;
+    width: 75%;
+    height: 75vh;
+    align-self: center;
+    justify-self: center;
+}
+
+mat-title {
+    align-self: center;
+    justify-self: center;
+}
+input#color {
+    padding: 0px 0px;
+    border: none;
+    background: none;
+}
+
+.username-input {
+    margin-right: 15px;
+}
+
+.room-list {
+    width: 100%;
+}
+
+.demo-table {
+    width: 100%;
+}
+
+.demo-button-container {
+    padding-bottom: 16px;
+}
+
+.table-btn {
+    margin-left: 8px;
+}
+
+.mat-row:hover .mat-cell {
+    background: #eeeeee
+  }
+
+.table-row-selected {
+    font-weight: bold;
+    background: #dcdcdc;
+}
