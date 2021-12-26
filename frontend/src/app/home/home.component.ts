@@ -28,7 +28,14 @@ export class HomeComponent implements OnInit {
 
   ngOnInit(): void {
     this.rooms = this._ws.rooms;
-    this._ws.connect();
+    this._ws.connect()
+    .then((success: boolean) => {
+      if(success) {
+        console.log("Connected to server");
+      } else {
+        console.log("Failed to connect to server");
+      }
+    });
   }
 
   isConnected() {

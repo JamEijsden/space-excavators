@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { TessellateModifier } from 'three/examples/jsm/modifiers/TessellateModifier';
 import { generateUUID } from "three/src/math/MathUtils";
 import { Attack } from "./weapons/attacks/attack";
+import { Vehicle } from 'yuka';
 
 export abstract class GameObject {
 
@@ -25,6 +26,7 @@ export abstract class GameObject {
     public yuka!: any;
     public player!: GameObject;
     public hasBeenHit = false;
+    private _vehicle!: Vehicle;
 
     protected _mesh: any = new Object3D();
         
@@ -38,6 +40,18 @@ export abstract class GameObject {
 
     public get uuid(): string {
       return this._uuid;
+    }
+
+    public set uuid(uuid: string) {
+      this._uuid = uuid;
+    }
+
+    public set vehicle(v : Vehicle) {
+      this._vehicle = v;
+    }
+
+    public get vehicle() {
+      return this._vehicle;
     }
 
     public accelerate(active: boolean): void {

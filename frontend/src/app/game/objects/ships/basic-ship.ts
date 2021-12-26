@@ -6,7 +6,7 @@ import { Position } from "../Position";
 import { Attack } from '../weapons/attacks/attack';
 import { Weapon } from '../weapons/weapons';
 import { Vector3 } from 'three';
-
+import * as YUKA from 'yuka';
 
 export class BasicShip extends GameObject {
     weapon: Weapon;
@@ -14,16 +14,17 @@ export class BasicShip extends GameObject {
     
     constructor(isPlayer: boolean, name: string = 'Enemy', color: string = 'red') {
         super();
-        
         this.maxVelocity = 1
         this.acceleration =  0.2 / 3;
-
+        this._mesh.matrixAutoUpdate = false;
         if(isPlayer) {
             this.baseVelocity = 0.4;
             this.weapon = new Shotgun({color: color}); 
             this.animateFunction = (tick: number) => {
                 // this.nametag.position.copy(this.mesh.position).add(new Vector3(0, 2, 2));
                 this._mesh.material.uniforms.u_time.value += 0.01;
+                const {x, y, z} = this.mesh.position;
+                this.vehicle.position.set(x, y, z);
             };  
         } else {
             this.weapon = new Pistol({color: color});
@@ -34,16 +35,16 @@ export class BasicShip extends GameObject {
                 // this._mesh.rotation.z += this.rotationSpeedX;
                 this._mesh.material.uniforms.u_time.value += 0.02;
                 this._mesh.lookAt(this.player.mesh.position);
-                this.rotateAboutPoint(this._mesh, this.player.mesh.position, new THREE.Vector3(0, 0, 0.5), this.velocity / 20, true);
+               
                 const distanceFromPlayer: number = this.mesh.position.distanceTo(this.player.mesh.position);
+                const speedFactor = Math.max(Math.log(distanceFromPlayer), 1);
+                this.rotateAboutPoint(this._mesh, this.player.mesh.position, new THREE.Vector3(0, 0, 0.5), this.velocity / 20, true);
+                
                 
                 if(!this.fleeing && distanceFromPlayer >= 30) {
-                    this.mesh.translateZ( this.velocity );
+                    this.mesh.translateZ( this.velocity * speedFactor );
                 } 
-                // else if(distanceFromPlayer < 60 || (this.fleeing && distanceFromPlayer < 100)) {
-                //     this.fleeing = !(distanceFromPlayer >= 70);
-                //     this.mesh.translateX( -this.velocity);
-                // }
+
             };
         }
         this.velocity = this.baseVelocity;
@@ -67,6 +68,7 @@ export class BasicShip extends GameObject {
         // Direction of attack and where it spawns
         const attacks: Attack[] = this.weapon.trigger();
         attacks.forEach(a => {
+            a.playerUUID = this.uuid;
             a.mesh.position.copy(this.mesh.position);
             a.mesh.quaternion.copy(this.mesh.quaternion);
         });

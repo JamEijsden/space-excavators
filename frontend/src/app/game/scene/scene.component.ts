@@ -21,6 +21,9 @@ import { Font, FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
 import { Subject } from 'rxjs/internal/Subject';
 import { interval } from 'rxjs';
+import { Vehicle } from 'yuka';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Enemy } from 'src/app/shared/class/enemy';
 
 @Component({
   selector: 'app-scene',
@@ -112,21 +115,11 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
   private playerAttacks: THREE.Group = new THREE.Group();
   private enemyAttacks: THREE.Group = new THREE.Group();
 
-  constructor(private _game: GameService) { 
+  constructor(private _game: GameService, private router: Router) { 
     this.player = new BasicShip(true, this._game.user.username, this._game.user.color);
   }
 
   ngOnInit(): void {
-     this.fontLoader.load(
-      '/assets/font/Origin_Tech.json',
-      (font: Font) => {
-        this.font = font;
-        console.log('Font loaded', font);
-        this.initPlayers();
-      },
-      (xhr) => {},
-      (err) => console.log('Faile to load font, ', err)
-    );
   }
 
   initPlayers() {
@@ -140,6 +133,7 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
         this.removeOtherPlayer(playerData.user);
       }
     }); 
+
     if(!this._game.host) {
       this._game.players.forEach(p => 
         this.addOtherPlayer(p)
@@ -148,8 +142,22 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
     this._game.gameState
       .pipe(takeUntil(this.ngDestroy))
       .subscribe(state => {
-        // console.log("Game state", state);
-        console.log('gameState', state.players, this.state);
+        // console.log('gameState', state.players, this.state);
+        state.enemies
+        .forEach((e: Enemy) => {
+          if(!this.state.enemies.has(e.uuid)) {
+            const {x, y, z} = e.state.position;
+            const enemy = new BasicShip(false);
+            enemy.uuid = e.uuid;
+            enemy.mesh.position.set(x, y, z);
+            this.addEnemy(enemy);
+          }
+        });
+
+        state.hitEnemies.forEach((uuid: string) => {
+          this.removeEnemy(uuid);
+        });
+
         state.players
         .filter((p: User) => p.uuid !== this.player.uuid)
         .forEach((p: User) => {
@@ -175,11 +183,21 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
-    if(this.loading) {
-     
+    if(!this._game.isConnected()) {
+      this.router.navigate([''])
     } else {
-      this.createScene();
-      this.startRenderingLoop();
+      this.fontLoader.load(
+        '/assets/font/Origin_Tech.json',
+        (font: Font) => {
+          this.font = font;
+          console.log('Font loaded', font);
+          this.initPlayers();
+          this.createScene();
+          this.startRenderingLoop();
+        },
+        (xhr) => {},
+        (err) => console.log('Faile to load font, ', err)
+      );
     }
   }
 
@@ -195,9 +213,13 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
     if(this._game.host) {
       
     }
-    this._game.sendPlayerUpdate(
-      playedData
+    this._game.sendPlayerUpdate( 
+      {
+        state: playedData,
+        hitEnemies: Array.from(this.state.hitEnemies.keys())
+      }
     );
+    this.state.hitEnemies.clear();
   }
 
 
@@ -226,6 +248,10 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
     this.camera.position.z = this.cameraZ;
     this.createSkyDome();
     this.viewportMatrix = new THREE.Matrix4().multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+    const grid = new THREE.GridHelper( 400, 25 );
+    grid.rotateX(Math.PI / 2)
+    this.scene.add( grid );
+    
     //setTimeout(() => this.addEnemy(new BasicShip(false)), this.spawnRateMS);
     
   }
@@ -240,11 +266,6 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
     this.enemyFolder = this.gui.addFolder('Enemy')
     this.enemyFolder.add(this, 'spawnRateMS', 1000, 15000).onChange(v => this.spawnRateMS = v);
     this.enemyFolder.add(this, 'reloadTimeMS', 10, 1000).onChange(v =>this.reloadTimeMS = v);
-    // enemyFolder.add(this.bloomParams, 'bloomThreshold', 0, 1).onChange(v =>this.bloomPass.threshold = v);
-    // enemyFolder.add(this.bloomParams, 'bloomRadius', 0, 1).onChange(v =>this.bloomPass.radius = v);
-    // const cameraFolder = gui.addFolder('Camera')
-    // cameraFolder.add(this.camera.position, 'z', 0, 10)
-    // cameraFolder.open()
   } 
 
   createSkyDome() {
@@ -308,7 +329,12 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
     if(addToState) {
       this.state.players.set(player.mesh.uuid, player);
     }
+    const vehicle: Vehicle = new Vehicle();
+    vehicle.maxSpeed = player.maxVelocity;
+    vehicle.setRenderComponent(player.mesh, this.sync);
+    this.player.vehicle = vehicle;
     this.players.add(player.mesh);
+    this.entityManager.add(vehicle);
     console.log('Player added', addToState);
   }
   
@@ -319,7 +345,24 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
     enemy.player = this.player;
     this.state.enemies.set(enemy.uuid, enemy);
     this.enemies.add(enemy.mesh);
-    setTimeout(() => this.addEnemy(new BasicShip(false)), this.spawnRateMS);
+    
+    const vehicle = new YUKA.Vehicle();
+    vehicle.maxSpeed = 3;
+    vehicle.position.z = 0;
+    vehicle.setRenderComponent(enemy.mesh, this.sync);
+    const pursuitBehavior = new YUKA.PursuitBehavior( this.player.vehicle, 2 );
+    vehicle.steering.add( pursuitBehavior );
+    this.entityManager.add(vehicle);
+  //setTimeout(() => this.addEnemy(new BasicShip(false)), this.spawnRateMS);
+  }
+
+  removeEnemy(uuid: string) {
+    const e = this.state.enemies.get(uuid);
+    if(!!e) {
+      this.enemies.remove(e.mesh);
+      this.state.enemies.delete(uuid);
+      this.state.hitEnemies.delete(uuid);
+    }
   }
 
   sync(entity: any, renderCompoent: any) {
@@ -347,6 +390,7 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
     window.addEventListener('resize', this.onWindowResize );
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.viewportSize = this.getViewPortWidth();
+    this._game.initiateTimeSync();
     this.animate();
   }
 
@@ -370,13 +414,14 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private addBloomPass() {
-    this.bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
-    this.bloomPass.threshold = this.bloomParams.bloomThreshold;
-    this.bloomPass.strength = this.bloomParams.bloomStrength;
-    this.bloomPass.radius = this.bloomParams.bloomRadius;
+    this.bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 
+      this.bloomParams.bloomStrength,
+      this.bloomParams.bloomRadius,
+      this.bloomParams.bloomThreshold 
+    );
 
     const renderScene = new RenderPass( this.scene, this.camera );
-    this.composer = new EffectComposer( this.renderer );
+    this.composer = new EffectComposer( this.renderer);
     this.composer.addPass( renderScene );
     this.composer.addPass( this.bloomPass );
   }
@@ -398,12 +443,15 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
   private animate(): void {
     requestAnimationFrame(() => this.animate());
     this.delta += this.clock.getDelta();
-
-    if (this.delta  > this.FPS_144) {
+    const deltaTime = this.time.update().getDelta();
+    if (this.delta  > this.FPS_30) {
       this.render();
-      this.composer.render();
+      //this.composer.render();
       this.stats.update();
+      this._game.updateLatency(this.delta);
     }
+    this.entityManager.update(deltaTime);
+      
   }
 
   private render(): void {
@@ -419,6 +467,15 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
 
+    const localAttacksToRemove: Attack[] = [];
+    this.state.localPlayerAttacks.forEach(a => { 
+      if(this.isOutsideViewPort(a.mesh)) {
+        localAttacksToRemove.push(a);
+      } else {
+        a.animate(this.delta);
+      }
+     });
+
     const pAttacksToRemove: Attack[] = [];
     this.state.playerAttacks.forEach(a => { 
       if(this.isOutsideViewPort(a.mesh)) {
@@ -428,6 +485,11 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
       }
      });
      
+     localAttacksToRemove.forEach(a => {
+      this.playerAttacks.remove(a.mesh);
+      this.state.playerAttacks.delete(a.uuid);
+    })
+
      pAttacksToRemove.forEach(a => {
        this.playerAttacks.remove(a.mesh);
        this.state.playerAttacks.delete(a.uuid);
@@ -446,7 +508,6 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
       })
     })
 
-    
     this.state.players.forEach(player =>  {
       if(player.shooting) {
         const attacks: Attack[] = player.attack(0);
@@ -461,7 +522,8 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
       const attacks: Attack[] = this.player.attack(i);
       attacks.forEach(a => {
         this.playerAttacks.add(a.mesh);
-        this.state.playerAttacks.set(a.uuid, a);
+        // this.state.playerAttacks.set(a.uuid, a);
+        this.state.localPlayerAttacks.set(a.uuid, a); 
       })
     });
     this.state.enemies.forEach(value => value.animate(0))
@@ -513,29 +575,18 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
       this.state.enemyAttacks.delete(o.uuid);
     }); 
 
-    const enemyToRemove: any[] = [];
-    const enemyAttacksToRemove: any[] = [];
     this.state.enemies.forEach(e => {
       var enemyBB = new THREE.Box3().setFromObject(e.mesh);
-      this.state.playerAttacks.forEach(a => {
+      this.state.localPlayerAttacks.forEach(a => {
         var attackBB = new THREE.Box3().setFromObject(a.mesh);
         var isCollision = attackBB.intersectsBox(enemyBB);
         if(isCollision){
             //console.log('Hit Enemy!');
-            enemyToRemove.push(e);
-            enemyAttacksToRemove.push(a);
+            this.state.hitEnemies.set(e.uuid, e);
             return;
         }
       });
     });
-    enemyToRemove.forEach(o => {
-      this.enemies.remove(o.mesh);
-      this.state.enemies.delete(o.uuid);
-    }); 
-    enemyAttacksToRemove.forEach(o => {
-      this.playerAttacks.remove(o.mesh);
-      this.state.playerAttacks.delete(o.uuid);
-    })
   }
 
 
@@ -589,9 +640,10 @@ export class SceneComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.ngDestroy.next(false);
     this._game.leaveRoom();
-    this.gui.removeFolder(this.bloomFolder);
-    this.gui.removeFolder(this.enemyFolder);
-
+    if(!!this.gui) {
+      this.gui.removeFolder(this.bloomFolder);
+      this.gui.removeFolder(this.enemyFolder);  
+    }
   }
 
 }

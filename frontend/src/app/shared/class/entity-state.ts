@@ -1,4 +1,4 @@
-export interface PlayerState {
+export interface EntityState {
     health: number;
     score: number;
     shooting: boolean;

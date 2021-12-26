@@ -1,5 +1,4 @@
 import { ChatMessage } from "./classes/chat-message";
-import { User } from "./classes/user";
 const { Server } = require("socket.io");
 
 const crypto = require('crypto');
@@ -25,6 +24,8 @@ export default async (expressServer) => {
   });
 
   setInterval(() => updateRooms(io, rooms), 100);
+
+  setInterval(() => spawnEnemy(io, rooms), 3000);
 
   io.on('connection', (socket) => {
     emitUpdatedRoomList(socket, rooms);
@@ -92,7 +93,8 @@ export default async (expressServer) => {
         active: true, 
         host: user, 
         users: users,
-        enemies: new Map()
+        enemies: new Map(),
+        hitEnemies: [],
       });
       socketToRoom.set(socket.id, user.uuid);
       socketToUser.set(socket.id, user.uuid);
@@ -104,7 +106,20 @@ export default async (expressServer) => {
     
     socket.on('player/update', (data, callback) => {
       const room = rooms.get(socketToRoom.get(socket.id));
-      room.users.get(socketToUser.get(socket.id)).state = data;
+      room.users.get(socketToUser.get(socket.id)).state = data.state;
+      data.hitEnemies.forEach(uuid => enemyHit(socket, room, uuid));
+    });
+
+    socket.on('time/server', (clientTimeMs, callback) => {
+      console.log(clientTimeMs);
+      callback({
+        server: Math.floor(new Date().getTime()), // server epoch ms
+        client: clientTimeMs, // client epoch ms
+      });
+    });
+
+    socket.on('time/latency', (clientTimeMs, callback) => {
+      callback(clientTimeMs);
     });
 
   });
@@ -167,72 +182,62 @@ export default async (expressServer) => {
   }
 
   function sendRoomStateUpdate(io, room) {
-    io.emit('game/update', {players: Array.from(room.users.values())});
+    const state = {
+      players: Array.from(room.users.values()),
+      enemies: Array.from(room.enemies.values()),
+      hitEnemies: room.hitEnemies
+    }
+    io.emit('game/update', state);
+
+    if(state.hitEnemies.lenght > 0 ) {
+      console.log(state.hitEnemies);
+    }
+    room.hitEnemies.splice(0, room.hitEnemies.length);
   }
 
-  function spawnEnemy(socket, room) {
+  function spawnEnemy(socket, rooms) {
     const enemy = {
       uuid: crypto.randomUUID(),
-      health: 1,
-      position: {
-        x: getRandomInt(50),
-        y: getRandomInt(50),
-        z: 0,
-      },
-      rotation: {
-        x: 0,
-        y: 0,
-        z: 0,
+      state: {
+        health: 1,
+        position: {
+          x: getRandomInt(150),
+          y: getRandomInt(100),
+          z: 0,
+        },
+        rotation: {
+          x: 0,
+          y: 0,
+          z: 0,
+        }
       }
     };
-    socket.in(room.uuid).emit('enemy/spawn', enemy);
-    roomSocket.emit('enemy/dead', uuid);
-  }
-
-  const playerDmg = 1;
-  function enemyHit(socket, room, uuid) {
-    if(room.enemies.get(uuid).health >= 0) {
-      return;
-    } else {
-      room.enemies.get(uuid).health -= playerDmg;
-      if(room.enemies.get(uuid).health >= 0) {
-        room.enemies.delete(uuid);
-        socket.in(room.uuid).emit('enemy/dead', uuid);
-      }
-    }
-
-    function getRandomInt(max) {
-      return Math.floor(70 + Math.random() * max);
-    }
-
-      // Client
-  function sendClientTime() {
-
-  }
-
-  function onTimeServerEvent({server, client}) {
-    const latency; // = (client os current epoch ms - old client) / 2
-    const clientClock = server + latency;
-  }
-  // delta_latency = 0;
-  // clientClick += (delta*1000) - delta_latency
-  // delta_lentacy -= delta_latency;
-  // decimal_collector += (delta*1000) - int(delta*1000) 
-  // decimal_collector >= 1  add +1 to clock and -1 to collector
-  // TODO: continue here https://youtu.be/TwVT3Qx9xEM?t=589
-
-
-  function determineLatency() {
-
-  }
-
-  // Server  arg clietnTimeMs epoch ms
-  function fetchServerTime(socket, clientTimeMs, user) {
-    const uuid = user.uuid;
-    socket.send('time/server', {
-      server: 1234, // server epoch ms
-      client: clientTimeMs, // client epoch ms
+    Array.from(rooms.values()).forEach(r => {
+      r.enemies.set(enemy.uuid, enemy);
     });
-  
+    // socket.in(room.uuid).emit('enemy/spawn', enemy);
+    // roomSocket.emit('enemy/dead', uuid);
   }
+
+const playerDmg = 1;
+function enemyHit(socket, room, uuid) {
+  const e = room.enemies.get(uuid);
+  if(!e) {
+    return;
+  }
+  console.log(e);
+  if(e.state.health <= 0) {
+    return;
+  } else {
+    e.state.health -= playerDmg;
+    if(e.state.health <= 0) {
+      room.hitEnemies.push(uuid);
+      room.enemies.delete(uuid);
+      // socket.in(room.uuid).emit('enemy/dead', uuid);
+    }
+  }
+}
+
+function getRandomInt(max) {
+  return Math.floor(-max + Math.random() * 2 * max);
 }
